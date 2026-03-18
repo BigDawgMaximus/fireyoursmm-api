@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password_hash String
+  name          String?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Billing
+  stripe_customer_id String?  @unique
+  plan               String   @default("free") // free, starter, growth, scale, enterprise
+  credits_remaining  Int      @default(50)
+  credits_monthly    Int      @default(50)
+  credits_reset_at   DateTime @default(now())
+
+  // Onboarding
+  onboarding_complete Boolean @default(false)
+  onboarding_step     Int     @default(0)
+  vault_path          String?
+
+  // Settings
+  timezone          String  @default("America/New_York")
+  brief_time        String  @default("08:00")
+  priority_platform String?
+
+  // Password reset
+  reset_token        String?   @unique
+  reset_token_expiry DateTime?
+
+  // Referrals
+  referral_code     String?  @unique @default(uuid())
+  referred_by       String?
+
+  competitors       Competitor[]
+  platforms         UserPlatform[]
+  chat_messages     ChatMessage[]
+  generated_content GeneratedContent[]
+  experiments       ExperimentLog[]
+  rewards           Reward[]
+  referrals_made    Referral[] @relation("referrals_made")
+}
+
+model Competitor {
+  id           String    @id @default(uuid())
+  user_id      String
+  user         User      @relation(fields: [user_id], references: [id])
+  platform     String
+  username     String
+  added_at     DateTime  @default(now())
+  last_scraped DateTime?
+
+  @@unique([user_id, platform, username])
+}
+
+model UserPlatform {
+  id          String  @id @default(uuid())
+  user_id     String
+  user        User    @relation(fields: [user_id], references: [id])
+  platform    String
+  handle      String
+  is_priority Boolean @default(false)
+
+  @@unique([user_id, platform])
+}
+
+model ChatMessage {
+  id           String   @id @default(uuid())
+  user_id      String
+  user         User     @relation(fields: [user_id], references: [id])
+  role         String   // "user" or "assistant"
+  content      String
+  credits_used Int      @default(0)
+  created_at   DateTime @default(now())
+}
+
+model GeneratedContent {
+  id             String   @id @default(uuid())
+  user_id        String
+  user           User     @relation(fields: [user_id], references: [id])
+  type           String   // "post", "hook", "rewrite", "brief", "decode", "deck"
+  platform       String?
+  input          String
+  output         String
+  credits_used   Int
+  velocity_score Int?
+  approved       Boolean  @default(false)
+  created_at     DateTime @default(now())
+}
+
+model ScrapeResult {
+  id        String    @id @default(uuid())
+  platform  String
+  username  String
+  post_text String?
+  post_url  String?
+  likes     Int       @default(0)
+  replies   Int       @default(0)
+  retweets  Int       @default(0)
+  bookmarks Int       @default(0)
+  views     Int       @default(0)
+  hook_type String?
+  posted_at DateTime?
+  scraped_at DateTime @default(now())
+
+  @@index([platform, username])
+  @@index([scraped_at])
+}
+
+model Reward {
+  id          String    @id @default(uuid())
+  user_id     String
+  user        User      @relation(fields: [user_id], references: [id])
+  type        String    // ugc_post, ugc_viral, referral_signup, referral_paid, testimonial, onboarding_complete, platform_connect, share, bug_report
+  credits     Int
+  description String
+  proof_url   String?
+  status      String    @default("pending") // pending, approved, rejected, auto_approved
+  metadata    String?   // JSON string
+  created_at  DateTime  @default(now())
+  reviewed_at DateTime?
+
+  @@index([user_id, status])
+  @@index([user_id, type])
+}
+
+model Referral {
+  id               String    @id @default(uuid())
+  referrer_id      String
+  referrer         User      @relation("referrals_made", fields: [referrer_id], references: [id])
+  referred_email   String
+  referred_user_id String?
+  status           String    @default("pending") // pending, signed_up, paid, expired
+  credits_awarded  Int       @default(0)
+  created_at       DateTime  @default(now())
+  converted_at     DateTime?
+
+  @@index([referrer_id])
+  @@index([referred_email])
+}
+
+model ExperimentLog {
+  id                String   @id @default(uuid())
+  user_id           String
+  user              User     @relation(fields: [user_id], references: [id])
+  date              DateTime @default(now())
+  type              String   // hook, format, timing, pillar, gap, voice
+  variant           String
+  content           String?
+  score             Int
+  was_used          Boolean  @default(false)
+  actual_engagement Int?
+
+  @@index([user_id, date])
+  @@index([user_id, type])
+}
