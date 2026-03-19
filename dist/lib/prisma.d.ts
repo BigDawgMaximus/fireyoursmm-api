@@ -1,5 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../generated/prisma/client.js";
+import { PrismaClient } from "@prisma/client";
 export declare const prisma: PrismaClient<{
     adapter: PrismaPg;
-}, never, import("../generated/prisma/runtime/client.js").DefaultArgs>;
+}, never, import("@prisma/client/runtime/client").DefaultArgs>;
