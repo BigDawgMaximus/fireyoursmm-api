@@ -22,4 +22,3 @@ export declare const scraper: {
         posts: ScrapedPost[];
     }>;
 };
-//# sourceMappingURL=scraper-client.d.ts.map

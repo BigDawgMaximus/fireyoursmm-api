@@ -41,4 +41,3 @@ export declare class VaultManager {
     addCompetitor(clientId: string, handle: string): Promise<void>;
 }
 export declare const vault: VaultManager;
-//# sourceMappingURL=manager.d.ts.map

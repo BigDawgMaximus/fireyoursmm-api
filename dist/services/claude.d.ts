@@ -10,4 +10,3 @@ export declare function callAgent(call: AgentCall): Promise<string>;
 export declare function callAgentJSON<T>(call: AgentCall): Promise<T>;
 export declare function callAgentsParallel(calls: Record<string, AgentCall>): Promise<Record<string, string>>;
 export { client as anthropicClient };
-//# sourceMappingURL=claude.d.ts.map

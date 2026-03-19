@@ -52,4 +52,3 @@ interface ScheduledPost {
 export declare function generateDailyBrief(clientId: string): Promise<DailyBrief>;
 export declare function runScheduledBriefs(): Promise<void>;
 export {};
-//# sourceMappingURL=daily-brief.d.ts.map

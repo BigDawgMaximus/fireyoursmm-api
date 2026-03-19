@@ -192,4 +192,3 @@ export interface ApiResponse<T> {
     error?: string;
     timestamp: string;
 }
-//# sourceMappingURL=index.d.ts.map

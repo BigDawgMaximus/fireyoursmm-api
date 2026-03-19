@@ -2,4 +2,3 @@ export declare function deductCredits(userId: string, amount: number, type: stri
     success: boolean;
     remaining: number;
 }>;
-//# sourceMappingURL=credits.d.ts.map

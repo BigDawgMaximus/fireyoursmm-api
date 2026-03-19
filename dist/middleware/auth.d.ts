@@ -19,4 +19,3 @@ export declare function signToken(user: {
 }, expiresIn?: string): string;
 export declare function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void>;
 export declare function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void>;
-//# sourceMappingURL=auth.d.ts.map

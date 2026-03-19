@@ -22,4 +22,3 @@ export interface AutoresearchResult {
     duration_ms: number;
 }
 export declare function runContentResearch(userId: string): Promise<AutoresearchResult>;
-//# sourceMappingURL=autoresearch.d.ts.map

@@ -24,4 +24,3 @@ export declare function markExperimentUsed(experimentId: string, actualEngagemen
  * Returns a multiplier per experiment type.
  */
 export declare function getCalibrationFactors(userId: string): Promise<Record<string, number>>;
-//# sourceMappingURL=experiment-log.d.ts.map

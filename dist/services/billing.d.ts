@@ -7,4 +7,3 @@ export declare function createCheckoutSession(userId: string, email: string, pla
 export declare function createTopUpSession(userId: string, email: string, pack: string, successUrl: string, cancelUrl: string): Promise<string>;
 export declare function createPortalSession(userId: string, email: string, returnUrl: string): Promise<string>;
 export declare function handleWebhook(event: Stripe.Event): Promise<void>;
-//# sourceMappingURL=billing.d.ts.map

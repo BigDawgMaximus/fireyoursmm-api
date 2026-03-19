@@ -226,4 +226,3 @@ export declare const TRIGGER_PATTERNS: readonly [{
     readonly reply_rate: "medium";
 }];
 export declare const BANNED_WORDS: readonly ["leverage", "utilize", "comprehensive", "cutting-edge", "seamless", "harness", "robust", "elevate", "craft", "delve", "foster", "landscape", "navigate", "paradigm", "streamline", "synergy", "empower", "innovative", "transform", "revolutionize", "excited to announce", "thrilled to share", "game-changing", "we're proud to", "groundbreaking"];
-//# sourceMappingURL=algorithm.d.ts.map

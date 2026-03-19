@@ -8,4 +8,3 @@ interface JobStatus {
 export declare function startScheduler(): void;
 export declare function getSchedulerStatus(): JobStatus[];
 export {};
-//# sourceMappingURL=scheduler.d.ts.map
