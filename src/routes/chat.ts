@@ -27,6 +27,7 @@ type ChatIntent =
   | "strategy_request"
   | "generate_brief"
   | "score_content"
+  | "thumbnail_request"
   | "general_chat";
 
 const INTENT_RULES: Array<{ test: (msg: string) => boolean; intent: ChatIntent }> = [
@@ -40,6 +41,7 @@ const INTENT_RULES: Array<{ test: (msg: string) => boolean; intent: ChatIntent }
   { test: (m) => /\b(strategy|plan|campaign)\b/i.test(m), intent: "strategy_request" },
   { test: (m) => /\b(brief|morning)\b/i.test(m), intent: "generate_brief" },
   { test: (m) => /\b(score|rate)\b/i.test(m), intent: "score_content" },
+  { test: (m) => /\b(thumb(nail)?|cover image|banner)\b/i.test(m), intent: "thumbnail_request" },
 ];
 
 function detectIntent(message: string): ChatIntent {
@@ -64,6 +66,7 @@ const CREDIT_COSTS: Record<ChatIntent, number> = {
   strategy_request: 5,
   generate_brief: 0,
   score_content: 0,
+  thumbnail_request: 0,
   general_chat: 0,
 };
 
@@ -121,6 +124,11 @@ const SUGGESTIONS: Record<ChatIntent, string[]> = {
     "Rewrite to improve the score",
     "Generate better hooks for this",
     "Show me top-performing examples",
+  ],
+  thumbnail_request: [
+    "Analyze a YouTube thumbnail",
+    "Generate a thumbnail for my next video",
+    "What makes a high-CTR thumbnail?",
   ],
   general_chat: [
     "Generate my morning brief",
@@ -505,6 +513,16 @@ Be specific about what would improve the score.`,
         user: message,
         max_tokens: 1500,
       });
+    }
+
+    case "thumbnail_request": {
+      return "Head to the **Thumbnail Workshop** (/thumbnails) to:\n\n" +
+        "1. **Analyze & Recreate** — Upload any thumbnail you love. I'll decode its visual structure (layout, colors, fonts, hooks) and generate a new one with your brand.\n\n" +
+        "2. **Generate from Scratch** — Tell me your title and platform, and I'll design a high-CTR thumbnail concept with a CSS preview and image generation prompt.\n\n" +
+        "You can also use the API directly:\n" +
+        "- `POST /api/v1/thumbnails/analyze` — Upload an image\n" +
+        "- `POST /api/v1/thumbnails/generate` — Generate a concept\n\n" +
+        "What platform are you designing for?";
     }
 
     case "general_chat":

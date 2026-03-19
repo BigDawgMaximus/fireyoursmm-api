@@ -8,6 +8,7 @@ import { billingRouter } from "./routes/billing.js";
 import { chatRouter } from "./routes/chat.js";
 import { onboardRouter } from "./routes/onboard.js";
 import { rewardsRouter } from "./routes/rewards.js";
+import { thumbnailsRouter } from "./routes/thumbnails.js";
 import { optionalAuth } from "./middleware/auth.js";
 import { startScheduler } from "./services/scheduler.js";
 
@@ -40,6 +41,9 @@ app.use("/api/v1/onboard", onboardRouter);
 
 // Rewards routes (require auth)
 app.use("/api/v1/rewards", rewardsRouter);
+
+// Thumbnails routes
+app.use("/api/v1/thumbnails", thumbnailsRouter);
 
 // API routes (optional auth - attaches user if token present)
 app.use("/api/v1", optionalAuth, router);
