@@ -121,7 +121,7 @@ const STEP_LABELS: Record<number, string> = {
 
 onboardRouter.post("/skip/:step", async (req: Request, res: Response) => {
   try {
-    const step = parseInt(req.params.step, 10);
+    const step = parseInt(req.params.step as string, 10);
 
     if (isNaN(step) || step < 1 || step > TOTAL_STEPS) {
       fail(res, 400, `Invalid step number. Must be 1-${TOTAL_STEPS}.`);

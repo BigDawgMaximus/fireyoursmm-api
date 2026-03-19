@@ -4,6 +4,7 @@ import { vault } from "../vault/manager.js";
 import { scraper } from "../services/scraper-client.js";
 import { callAgent } from "../services/claude.js";
 import { generateWithPatterns, generateIntelligenceBrief } from "../services/intelligence.js";
+import { analyzeVoice, extractTrainingPatterns } from "../services/voice-analyzer.js";
 import { getSchedulerStatus } from "../services/scheduler.js";
 import type { DraftRequest, GenerateRequest, RewriteRequest, BriefRequest, Platform, ClientRole, ApiResponse } from "../types/index.js";
 
@@ -133,7 +134,7 @@ Be specific. Use the actual text. No generic advice.${clientContext}`,
 
 router.get("/scoreboard/:client_id", async (req: Request, res: Response) => {
   try {
-    const { client_id } = req.params;
+    const client_id = req.params.client_id as string;
     const period = (req.query.period as string) || "7d";
 
     const competitors = await vault.listCompetitors(client_id);
@@ -437,7 +438,7 @@ router.post("/scrape/refresh", async (req: Request, res: Response) => {
 
 router.get("/vault/:client_id/files", async (req: Request, res: Response) => {
   try {
-    const files = await vault.listFiles(req.params.client_id);
+    const files = await vault.listFiles(req.params.client_id as string);
     res.json({ success: true, data: { files } });
   } catch (err) {
     res.status(500).json({ success: false, error: String(err) });
@@ -451,7 +452,7 @@ router.get("/vault/:client_id/file", async (req: Request, res: Response) => {
       res.status(400).json({ success: false, error: "Missing path query param" });
       return;
     }
-    const content = await vault.readFile(req.params.client_id, filePath);
+    const content = await vault.readFile(req.params.client_id as string, filePath);
     res.json({ success: true, data: { path: filePath, content } });
   } catch (err) {
     res.status(500).json({ success: false, error: String(err) });
@@ -465,7 +466,7 @@ router.get("/vault/:client_id/search", async (req: Request, res: Response) => {
       res.status(400).json({ success: false, error: "Missing q query param" });
       return;
     }
-    const results = await vault.search(req.params.client_id, query);
+    const results = await vault.search(req.params.client_id as string, query);
     res.json({ success: true, data: { results } });
   } catch (err) {
     res.status(500).json({ success: false, error: String(err) });
