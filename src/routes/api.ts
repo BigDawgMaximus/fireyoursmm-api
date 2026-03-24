@@ -6,7 +6,8 @@ import { callAgent } from "../services/claude.js";
 import { generateWithPatterns, generateIntelligenceBrief } from "../services/intelligence.js";
 import { analyzeVoice, extractTrainingPatterns } from "../services/voice-analyzer.js";
 import { getSchedulerStatus } from "../services/scheduler.js";
-import type { DraftRequest, GenerateRequest, RewriteRequest, BriefRequest, Platform, ClientRole, ApiResponse } from "../types/index.js";
+import { runStatisticalAnalysis, compareWithCompetitors } from "../services/statistical-analyzer.js";
+import type { DraftRequest, GenerateRequest, RewriteRequest, BriefRequest, Platform, ClientRole, ApiResponse, ScrapedPost } from "../types/index.js";
 
 export const router = Router();
 
@@ -428,6 +429,100 @@ router.post("/scrape/refresh", async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
+    res.status(500).json({ success: false, error: String(err) });
+  }
+});
+
+// ============================================================
+// STATISTICAL ANALYSIS - Zero AI cost. Pure math.
+// ============================================================
+
+router.post("/analyze/statistical", async (req: Request, res: Response) => {
+  try {
+    const { account_handle, platform, competitor_handles, client_id } = req.body;
+
+    if (!account_handle) {
+      res.status(400).json({ success: false, error: "Missing account_handle" });
+      return;
+    }
+
+    const plat = (platform as Platform) || "x";
+
+    // Scrape user posts
+    const [postsResult, profileResult] = await Promise.all([
+      scraper.scrapePosts(plat, account_handle, 100),
+      scraper.scrapeProfile(plat, account_handle),
+    ]);
+
+    const posts: ScrapedPost[] = postsResult.posts.map((p: any) => ({
+      text: p.text || "",
+      date: p.date || "",
+      platform: plat,
+      author_handle: account_handle,
+      metrics: p.metrics || {},
+      media_type: p.media_type || "text",
+      url: p.url,
+    }));
+
+    if (!posts.length) {
+      res.status(400).json({ success: false, error: "No posts found for this account" });
+      return;
+    }
+
+    // Run analysis on user
+    const userAnalysis = runStatisticalAnalysis(posts, account_handle, plat, profileResult?.followers);
+
+    // If competitors provided, analyze them too
+    if (competitor_handles?.length) {
+      const competitorAnalyses = [];
+      for (const compHandle of competitor_handles.slice(0, 10)) {
+        try {
+          const [compPosts, compProfile] = await Promise.all([
+            scraper.scrapePosts(plat, compHandle, 50),
+            scraper.scrapeProfile(plat, compHandle),
+          ]);
+
+          const compScraped: ScrapedPost[] = (compPosts.posts || []).map((p: any) => ({
+            text: p.text || "",
+            date: p.date || "",
+            platform: plat,
+            author_handle: compHandle,
+            metrics: p.metrics || {},
+            media_type: p.media_type || "text",
+            url: p.url,
+          }));
+
+          if (compScraped.length > 0) {
+            competitorAnalyses.push(
+              runStatisticalAnalysis(compScraped, compHandle, plat, compProfile?.followers)
+            );
+          }
+        } catch (e) {
+          console.error(`Failed to analyze competitor ${compHandle}:`, e);
+        }
+      }
+
+      if (competitorAnalyses.length > 0) {
+        userAnalysis.competitor_comparison = compareWithCompetitors(userAnalysis, competitorAnalyses);
+      }
+    }
+
+    // Store in vault if client_id provided
+    if (client_id && await vault.vaultExists(client_id)) {
+      await vault.writeFile(
+        client_id,
+        "meta/statistical-analysis.json",
+        JSON.stringify(userAnalysis, null, 2),
+      );
+    }
+
+    res.json({
+      success: true,
+      data: userAnalysis,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Statistical analysis error:", err);
     res.status(500).json({ success: false, error: String(err) });
   }
 });
