@@ -9,6 +9,7 @@ import { chatRouter } from "./routes/chat.js";
 import { onboardRouter } from "./routes/onboard.js";
 import { rewardsRouter } from "./routes/rewards.js";
 import { thumbnailsRouter } from "./routes/thumbnails.js";
+import { youtubeRouter } from "./routes/youtube.js";
 import { optionalAuth } from "./middleware/auth.js";
 import { startScheduler } from "./services/scheduler.js";
 
@@ -45,6 +46,9 @@ app.use("/api/v1/rewards", rewardsRouter);
 // Thumbnails routes
 app.use("/api/v1/thumbnails", thumbnailsRouter);
 
+// YouTube analysis routes (require auth)
+app.use("/api/v1/youtube", youtubeRouter);
+
 // API routes (optional auth - attaches user if token present)
 app.use("/api/v1", optionalAuth, router);
 
@@ -76,6 +80,9 @@ app.get("/", (_req, res) => {
       scoreboard: "GET /api/v1/scoreboard/:client_id",
       trending: "GET /api/v1/trending",
       train: "POST /api/v1/train",
+      youtube_analyze: "POST /api/v1/youtube/analyze",
+      youtube_clips: "POST /api/v1/youtube/clips",
+      youtube_batch: "POST /api/v1/youtube/batch-analyze",
       vault: "GET /api/v1/vault/:client_id/*",
     },
   });
