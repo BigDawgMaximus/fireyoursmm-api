@@ -5,7 +5,8 @@ import { callAgent } from "../services/claude.js";
 import { generateIntelligenceBrief } from "../services/intelligence.js";
 import { vault } from "../vault/manager.js";
 import { scraper } from "../services/scraper-client.js";
-import type { Platform } from "../types/index.js";
+import { runStatisticalAnalysis, compareWithCompetitors, type StatisticalAnalysis } from "../services/statistical-analyzer.js";
+import type { Platform, ScrapedPost } from "../types/index.js";
 
 export const chatRouter = Router();
 
@@ -28,9 +29,16 @@ type ChatIntent =
   | "generate_brief"
   | "score_content"
   | "thumbnail_request"
+  | "statistical_analysis"
+  | "posting_schedule"
+  | "hook_analysis"
   | "general_chat";
 
 const INTENT_RULES: Array<{ test: (msg: string) => boolean; intent: ChatIntent }> = [
+  { test: (m) => /\b(analyze my account|what'?s working|analyze my (posts|content)|my stats)\b/i.test(m), intent: "statistical_analysis" },
+  { test: (m) => /\b(when should I post|best time|posting schedule|optimal time)\b/i.test(m), intent: "posting_schedule" },
+  { test: (m) => /\b(what hooks work|best hooks|hook analysis|hook patterns)\b/i.test(m), intent: "hook_analysis" },
+  { test: (m) => /\b(compare me|vs competitors|competitor comparison|how do I stack up)\b/i.test(m), intent: "statistical_analysis" },
   { test: (m) => /https?:\/\/\S+/.test(m), intent: "analyze_url" },
   { test: (m) => /^(draft|write|post about)\b/i.test(m), intent: "generate_content" },
   { test: (m) => /\b(competitor|what did|who posted)\b/i.test(m), intent: "competitor_query" },
@@ -67,6 +75,9 @@ const CREDIT_COSTS: Record<ChatIntent, number> = {
   generate_brief: 0,
   score_content: 0,
   thumbnail_request: 0,
+  statistical_analysis: 0,  // Zero AI cost
+  posting_schedule: 0,       // Zero AI cost
+  hook_analysis: 0,          // Zero AI cost
   general_chat: 0,
 };
 
@@ -129,6 +140,21 @@ const SUGGESTIONS: Record<ChatIntent, string[]> = {
     "Analyze a YouTube thumbnail",
     "Generate a thumbnail for my next video",
     "What makes a high-CTR thumbnail?",
+  ],
+  statistical_analysis: [
+    "When should I post?",
+    "What hooks work best for me?",
+    "Draft a post using my best patterns",
+  ],
+  posting_schedule: [
+    "What hooks work best for me?",
+    "Analyze my account stats",
+    "Draft a post for the optimal window",
+  ],
+  hook_analysis: [
+    "Write a post using my best hook pattern",
+    "When should I post?",
+    "Compare me to competitors",
   ],
   general_chat: [
     "Generate my morning brief",
@@ -525,6 +551,47 @@ Be specific about what would improve the score.`,
         "What platform are you designing for?";
     }
 
+    case "statistical_analysis": {
+      // Try to load cached analysis from vault
+      const cachedAnalysis = await vault.readFile(userId, "meta/statistical-analysis.json");
+      if (cachedAnalysis) {
+        try {
+          const analysis: StatisticalAnalysis = JSON.parse(cachedAnalysis);
+          const summary = formatStatisticalSummary(analysis);
+          return summary;
+        } catch {
+          return "I have your statistical data but it seems corrupted. Try running a fresh analysis from your settings.";
+        }
+      }
+      return "I don't have statistical data for your account yet. Once onboarding is complete and we've scraped your posts, I'll have a full breakdown of your posting patterns, best times, top hooks, and more. All at zero cost, no AI needed.";
+    }
+
+    case "posting_schedule": {
+      const cachedAnalysis = await vault.readFile(userId, "meta/statistical-analysis.json");
+      if (cachedAnalysis) {
+        try {
+          const analysis: StatisticalAnalysis = JSON.parse(cachedAnalysis);
+          return formatScheduleSummary(analysis.posting_schedule);
+        } catch {
+          return "Could not load your posting schedule data.";
+        }
+      }
+      return "I need to analyze your posts first. Complete onboarding so I can find your optimal posting windows.";
+    }
+
+    case "hook_analysis": {
+      const cachedAnalysis = await vault.readFile(userId, "meta/statistical-analysis.json");
+      if (cachedAnalysis) {
+        try {
+          const analysis: StatisticalAnalysis = JSON.parse(cachedAnalysis);
+          return formatHookSummary(analysis.hook_patterns);
+        } catch {
+          return "Could not load your hook analysis data.";
+        }
+      }
+      return "I need to analyze your posts first. Complete onboarding so I can find your best hook patterns.";
+    }
+
     case "general_chat":
     default: {
       const history = await loadChatHistory(userId);
@@ -542,6 +609,139 @@ Be helpful, direct, and specific. If the user seems to want content or analysis,
       });
     }
   }
+}
+
+// ============================================================
+// STATISTICAL ANALYSIS FORMATTERS (human-readable, not raw JSON)
+// ============================================================
+
+function formatStatisticalSummary(a: StatisticalAnalysis): string {
+  const lines: string[] = [];
+  lines.push(`**Your Content Analysis** (${a.total_posts_analyzed} posts analyzed)\n`);
+
+  // Engagement
+  lines.push(`**Engagement Rate:** ${(a.top_performers.avg_engagement_rate * 100).toFixed(2)}% avg, ${(a.top_performers.p90_engagement_rate * 100).toFixed(2)}% top 10%\n`);
+
+  // Best times
+  if (a.posting_schedule.optimal_schedule.length) {
+    const best = a.posting_schedule.optimal_schedule.slice(0, 3);
+    lines.push("**Best Posting Times:**");
+    for (const slot of best) {
+      const hour = slot.hour > 12 ? `${slot.hour - 12}PM` : slot.hour === 0 ? "12AM" : `${slot.hour}AM`;
+      lines.push(`  ${slot.day} at ${hour} (${(slot.avg_engagement * 100).toFixed(2)}% eng, ${slot.post_count} posts)`);
+    }
+    lines.push("");
+  }
+
+  // Hook patterns
+  if (a.hook_patterns.pattern_engagement_rates.length) {
+    lines.push("**Your Best Hook Patterns:**");
+    for (const p of a.hook_patterns.pattern_engagement_rates.slice(0, 5)) {
+      lines.push(`  ${p.pattern.replace(/_/g, " ")}: ${(p.avg_engagement * 100).toFixed(2)}% avg (${p.count} posts)`);
+    }
+    lines.push("");
+  }
+
+  // Format ranking
+  if (a.format_detection.format_ranking.length) {
+    lines.push("**Best Content Formats:**");
+    for (const f of a.format_detection.format_ranking.slice(0, 5)) {
+      lines.push(`  ${f.format.replace(/_/g, " ")}: ${(f.avg_engagement * 100).toFixed(2)}% avg (${f.count} posts)`);
+    }
+    lines.push("");
+  }
+
+  // Post length
+  lines.push(`**Optimal Post Length:** ${a.post_length.optimal_chars.min} to ${a.post_length.optimal_chars.max} characters, ${a.post_length.optimal_words.min} to ${a.post_length.optimal_words.max} words\n`);
+
+  // Media
+  if (a.media_performance.media_ranking.length) {
+    lines.push("**Media Type Ranking:**");
+    for (const m of a.media_performance.media_ranking) {
+      lines.push(`  ${m.type}: ${(m.avg_engagement * 100).toFixed(2)}% avg (${m.count} posts)`);
+    }
+    lines.push("");
+  }
+
+  // Competitors
+  if (a.competitor_comparison) {
+    if (a.competitor_comparison.competitive_gaps.length) {
+      lines.push("**Gaps vs Competitors:**");
+      for (const gap of a.competitor_comparison.competitive_gaps.slice(0, 5)) {
+        lines.push(`  - ${gap}`);
+      }
+      lines.push("");
+    }
+    if (a.competitor_comparison.competitive_advantages.length) {
+      lines.push("**Your Advantages:**");
+      for (const adv of a.competitor_comparison.competitive_advantages.slice(0, 5)) {
+        lines.push(`  - ${adv}`);
+      }
+    }
+  }
+
+  lines.push("\nThis analysis uses zero AI. Pure data from your actual posts.");
+  return lines.join("\n");
+}
+
+function formatScheduleSummary(schedule: StatisticalAnalysis["posting_schedule"]): string {
+  const lines: string[] = [];
+  lines.push("**Your Optimal Posting Schedule**\n");
+
+  if (schedule.optimal_schedule.length) {
+    lines.push("**Best windows (highest engagement):**");
+    for (const slot of schedule.optimal_schedule) {
+      const hour = slot.hour > 12 ? `${slot.hour - 12}PM` : slot.hour === 0 ? "12AM" : `${slot.hour}AM`;
+      lines.push(`  ${slot.day} at ${hour} - ${(slot.avg_engagement * 100).toFixed(2)}% avg engagement (${slot.post_count} posts)`);
+    }
+    lines.push("");
+  }
+
+  if (schedule.worst_times.length) {
+    lines.push("**Avoid these times:**");
+    for (const slot of schedule.worst_times) {
+      const hour = slot.hour > 12 ? `${slot.hour - 12}PM` : slot.hour === 0 ? "12AM" : `${slot.hour}AM`;
+      lines.push(`  ${slot.day} at ${hour} - ${(slot.avg_engagement * 100).toFixed(2)}% avg (${slot.post_count} posts)`);
+    }
+    lines.push("");
+  }
+
+  // Day ranking
+  const activeDays = schedule.day_performance.filter(d => d.post_count > 0).sort((a, b) => b.avg_engagement - a.avg_engagement);
+  if (activeDays.length) {
+    lines.push("**Day ranking:**");
+    for (const day of activeDays) {
+      const bar = "█".repeat(Math.round(day.avg_engagement * 1000));
+      lines.push(`  ${day.day}: ${bar} ${(day.avg_engagement * 100).toFixed(2)}%`);
+    }
+  }
+
+  lines.push("\nBased on real engagement data from your posts. Zero AI cost.");
+  return lines.join("\n");
+}
+
+function formatHookSummary(hooks: StatisticalAnalysis["hook_patterns"]): string {
+  const lines: string[] = [];
+  lines.push("**Your Hook Pattern Analysis**\n");
+  lines.push(`Your dominant pattern: **${hooks.dominant_type.replace(/_/g, " ")}**\n`);
+
+  if (hooks.pattern_engagement_rates.length) {
+    lines.push("**Pattern performance ranking:**");
+    for (const p of hooks.pattern_engagement_rates) {
+      lines.push(`  ${p.pattern.replace(/_/g, " ")}: ${(p.avg_engagement * 100).toFixed(2)}% avg engagement (${p.count} posts)`);
+    }
+    lines.push("");
+  }
+
+  if (hooks.top_performing_hooks.length) {
+    lines.push("**Your best hooks (ranked by engagement):**");
+    for (const h of hooks.top_performing_hooks.slice(0, 5)) {
+      lines.push(`  "${h.text}" [${h.pattern}] - ${(h.engagement_rate * 100).toFixed(2)}%`);
+    }
+  }
+
+  lines.push("\nBased on real engagement data. Zero AI cost.");
+  return lines.join("\n");
 }
 
 // ============================================================
